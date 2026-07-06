@@ -497,3 +497,14 @@ sh_test(
         "@com_google_fuzztest//centipede:test_util_sh",
     ],
 )
+
+cc_binary(
+    name = "test_binary_for_engine_testing",
+    srcs = ["test_binary_for_engine_testing.cc"],
+    deps = [
+        "@abseil-cpp//absl/strings",
+        "@com_google_fuzztest//centipede:engine_abi",
+        "@com_google_fuzztest//centipede:engine_controller_with_subprocess",
+        "@com_google_fuzztest//centipede:engine_worker",
+    ],
+)

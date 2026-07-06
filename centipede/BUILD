@@ -979,6 +979,7 @@ cc_library(
     name = "engine_worker",
     srcs = [
         "engine_worker.cc",
+        "runner_utils.cc",
         "runner_utils.h",
     ],
     hdrs = ["engine_worker_abi.h"],
@@ -1956,6 +1957,7 @@ cc_test(
     timeout = "long",
     srcs = ["centipede_test.cc"],
     data = [
+        "@com_google_fuzztest//centipede",
         "@com_google_fuzztest//centipede/testing:abort_fuzz_target",
         "@com_google_fuzztest//centipede/testing:async_failing_target",
         "@com_google_fuzztest//centipede/testing:expensive_startup_fuzz_target",
@@ -1963,6 +1965,7 @@ cc_test(
         "@com_google_fuzztest//centipede/testing:fuzz_target_with_custom_mutator",
         "@com_google_fuzztest//centipede/testing:hanging_fuzz_target",
         "@com_google_fuzztest//centipede/testing:seeded_fuzz_target",
+        "@com_google_fuzztest//centipede/testing:test_binary_for_engine_testing",
         "@com_google_fuzztest//centipede/testing:test_fuzz_target",
         "@com_google_fuzztest//centipede/testing:test_input_filter",
     ],
