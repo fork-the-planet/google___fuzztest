@@ -15,7 +15,6 @@
 #include "./centipede/stop.h"
 
 #include <atomic>
-#include <cstdlib>
 
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
