@@ -86,7 +86,7 @@ class CentipedeMock : public CentipedeCallbacks {
     // i-th element is the number of bytes with the value 'i' in the input.
     // `counters` is converted to FeatureVec and added to
     // `batch_result.results()`.
-    for (auto &input : inputs) {
+    for (auto& input : inputs) {
       ByteArray counters(256);
       for (uint8_t byte : input) {
         counters[byte]++;
@@ -496,7 +496,7 @@ TEST_F(CentipedeWithTemporaryLocalDir, MutateViaExternalBinary) {
     // Must contain normal mutants, but not the ones from crossover.
     const auto mutant_data = GetDataFromMutants(result.mutants());
     EXPECT_THAT(mutant_data, IsSupersetOf(some_of_expected_mutants));
-    for (const auto &crossover_mutant : expected_crossover_mutants) {
+    for (const auto& crossover_mutant : expected_crossover_mutants) {
       EXPECT_THAT(mutant_data, Not(Contains(crossover_mutant)));
     }
   }
@@ -525,7 +525,7 @@ class MergeMock : public CentipedeCallbacks {
   std::vector<Mutant> Mutate(absl::Span<const MutationInputRef> inputs,
                              size_t num_mutants) override {
     std::vector<Mutant> mutants(num_mutants);
-    for (auto &mutant : mutants) {
+    for (auto& mutant : mutants) {
       mutant.data.resize(1);
       mutant.data[0] = ++number_of_mutations_;
       mutant.origin = Mutant::kOriginNone;
@@ -611,7 +611,7 @@ class FunctionFilterMock : public CentipedeCallbacks {
   // Sets the inputs to one of 3 pre-defined values.
   std::vector<Mutant> Mutate(absl::Span<const MutationInputRef> inputs,
                              size_t num_mutants) override {
-    for (auto &input : inputs) {
+    for (auto& input : inputs) {
       if (!seed_inputs_.contains(input.data)) {
         observed_inputs_.insert(input.data);
       }
@@ -628,8 +628,8 @@ class FunctionFilterMock : public CentipedeCallbacks {
   // Returns one of 3 pre-defined values, that trigger different code paths in
   // the test target.
   static ByteArray GetMutant(size_t idx) {
-    const char *mutants[3] = {"func1", "func2-A", "foo"};
-    const char *mutant = mutants[idx % 3];
+    const char* mutants[3] = {"func1", "func2-A", "foo"};
+    const char* mutant = mutants[idx % 3];
     return {mutant, mutant + strlen(mutant)};
   }
 
@@ -646,7 +646,7 @@ class FunctionFilterMock : public CentipedeCallbacks {
 // Runs a short fuzzing session with the provided `function_filter`.
 // Returns a sorted array of observed inputs.
 static std::vector<ByteArray> RunWithFunctionFilter(
-    std::string_view function_filter, const TempDir &tmp_dir) {
+    std::string_view function_filter, const TempDir& tmp_dir) {
   Environment env;
   env.workdir = tmp_dir.path();
   env.seed = 1;  // make the runs predictable.
@@ -717,9 +717,9 @@ class ExtraBinariesMock : public CentipedeCallbacks {
   bool Execute(std::string_view binary, absl::Span<const ByteSpan> inputs,
                BatchResult& batch_result) override {
     bool res = true;
-    for (const auto &input : inputs) {
+    for (const auto& input : inputs) {
       if (input.size() != 1) continue;
-      for (const Crash &crash : crashes_) {
+      for (const Crash& crash : crashes_) {
         if (binary == crash.binary && input[0] == crash.input) {
           batch_result.exit_code() = EXIT_FAILURE;
           batch_result.failure_description() = crash.description;
@@ -736,7 +736,7 @@ class ExtraBinariesMock : public CentipedeCallbacks {
   std::vector<Mutant> Mutate(absl::Span<const MutationInputRef> inputs,
                              size_t num_mutants) override {
     std::vector<Mutant> mutants(num_mutants);
-    for (auto &mutant : mutants) {
+    for (auto& mutant : mutants) {
       mutant.data.resize(1);
       mutant.data[0] = ++number_of_mutations_;
       mutant.origin = Mutant::kOriginNone;
@@ -754,20 +754,20 @@ struct FileAndContents {
   std::string file;
   std::string contents;
 
-  bool operator==(const FileAndContents &other) const {
+  bool operator==(const FileAndContents& other) const {
     return file == other.file && contents == other.contents;
   }
 
   template <typename Sink>
-  friend void AbslStringify(Sink &sink, const FileAndContents &f) {
+  friend void AbslStringify(Sink& sink, const FileAndContents& f) {
     absl::Format(&sink, "FileAndContents{%s, \"%s\"}", f.file, f.contents);
   }
 };
 
 MATCHER_P(HasFilesWithContents, expected_files_and_contents, "") {
-  const std::string &dir_path = arg;
+  const std::string& dir_path = arg;
   std::vector<FileAndContents> files_and_contents;
-  for (const auto &dir_ent : std::filesystem::directory_iterator(dir_path)) {
+  for (const auto& dir_ent : std::filesystem::directory_iterator(dir_path)) {
     auto file_and_contents = FileAndContents{dir_ent.path().filename()};
     ReadFromLocalFile(dir_ent.path().c_str(), file_and_contents.contents);
     files_and_contents.push_back(std::move(file_and_contents));
@@ -843,7 +843,7 @@ class UndetectedCrashingInputMock : public CentipedeCallbacks {
     if (!first_pass_) {
       num_inputs_triaged_ += inputs.size();
     }
-    for (const auto &input : inputs) {
+    for (const auto& input : inputs) {
       FUZZTEST_CHECK_EQ(input.size(), 1);  // By construction in `Mutate()`.
       // The contents of each mutant is its sequential number.
       if (input[0] == crashing_input_idx_) {
@@ -933,7 +933,7 @@ TEST(Centipede, UndetectedCrashingInput) {
         absl::StrCat("crashing_batch-", crashing_input_hash);
     EXPECT_TRUE(std::filesystem::exists(crashes_dir_path)) << crashes_dir_path;
     std::vector<std::string> found_crash_file_names;
-    for (auto const &dir_ent :
+    for (auto const& dir_ent :
          std::filesystem::directory_iterator(crashes_dir_path)) {
       found_crash_file_names.push_back(dir_ent.path().filename());
     }
@@ -1400,8 +1400,9 @@ TEST_F(CentipedeWithTemporaryLocalDir, EngineWorksInWorkerMode) {
   env.test_name = "some_test";
   env.populate_binary_info = false;
   env.fork_server = false;
-  env.persistent_mode = false;
+  env.persistent_mode = true;
   env.exit_on_crash = true;
+  env.stop_at = absl::Now() + absl::Seconds(10);
   fuzztest::internal::DefaultCallbacksFactory<
       fuzztest::internal::CentipedeDefaultCallbacks>
       callbacks;
