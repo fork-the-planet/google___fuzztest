@@ -91,21 +91,23 @@ TEST(MinimizeTest, MinimizeTest) {
   StopCondition stop_condition;
 
   // Test with a non-crashy input.
-  EXPECT_EQ(MinimizeCrash({1, 2, 3}, env, factory, stop_condition),
-            EXIT_FAILURE);
+  MinimizeCrash({1, 2, 3}, env, factory, stop_condition);
+  EXPECT_EQ(stop_condition.ExitCode(), EXIT_FAILURE);
 
   ByteArray expected_minimized = {'f', 'u', 'z'};
 
   // Test with a crashy input that can't be minimized further.
-  EXPECT_EQ(MinimizeCrash(expected_minimized, env, factory, stop_condition),
-            EXIT_FAILURE);
+  stop_condition.ClearEarlyStopRequest();
+  MinimizeCrash(expected_minimized, env, factory, stop_condition);
+  EXPECT_EQ(stop_condition.ExitCode(), EXIT_FAILURE);
 
   // Test the actual minimization.
   ByteArray original_crasher = {'f', '.', '.', '.', '.', '.', '.', '.',
                                 '.', '.', '.', 'u', '.', '.', '.', '.',
                                 '.', '.', '.', '.', '.', '.', 'z'};
-  EXPECT_EQ(MinimizeCrash(original_crasher, env, factory, stop_condition),
-            EXIT_SUCCESS);
+  stop_condition.ClearEarlyStopRequest();
+  MinimizeCrash(original_crasher, env, factory, stop_condition);
+  EXPECT_EQ(stop_condition.ExitCode(), EXIT_SUCCESS);
   // Collect the new crashers from the crasher dir.
   std::vector<ByteArray> crashers;
   for (auto const &dir_entry : std::filesystem::directory_iterator{

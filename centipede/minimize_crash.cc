@@ -135,9 +135,9 @@ static void MinimizeCrash(const Environment& env,
   }
 }
 
-int MinimizeCrash(ByteSpan crashy_input, const Environment& env,
-                  CentipedeCallbacksFactory& callbacks_factory,
-                  StopCondition& stop_condition) {
+void MinimizeCrash(ByteSpan crashy_input, const Environment& env,
+                   CentipedeCallbacksFactory& callbacks_factory,
+                   StopCondition& stop_condition) {
   ScopedCentipedeCallbacks scoped_callback(callbacks_factory, env,
                                            stop_condition);
   auto callbacks = scoped_callback.callbacks();
@@ -148,7 +148,8 @@ int MinimizeCrash(ByteSpan crashy_input, const Environment& env,
   ByteArray original_crashy_input(crashy_input.begin(), crashy_input.end());
   if (callbacks->Execute(env.binary, {original_crashy_input}, batch_result)) {
     FUZZTEST_LOG(INFO) << "The original crashy input did not crash; exiting";
-    return EXIT_FAILURE;
+    stop_condition.RequestEarlyStop(EXIT_FAILURE);
+    return;
   }
 
   FUZZTEST_LOG(INFO) << "Starting the crash minimization loop in "
@@ -166,7 +167,10 @@ int MinimizeCrash(ByteSpan crashy_input, const Environment& env,
     }
   }  // The threads join here.
 
-  return queue.SmallerCrashesFound() ? EXIT_SUCCESS : EXIT_FAILURE;
+  if (stop_condition.EarlyStopRequested()) return;
+  if (!queue.SmallerCrashesFound()) {
+    stop_condition.RequestEarlyStop(EXIT_FAILURE);
+  }
 }
 
 }  // namespace fuzztest::internal
