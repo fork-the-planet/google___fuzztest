@@ -991,8 +991,6 @@ cc_library(
         ":runner_result",
         ":shared_memory_blob_sequence",
         "@abseil-cpp//absl/base:nullability",
-        "@abseil-cpp//absl/random",
-        "@abseil-cpp//absl/random:bit_gen_ref",
         "@com_google_fuzztest//common:defs",
     ],
 )

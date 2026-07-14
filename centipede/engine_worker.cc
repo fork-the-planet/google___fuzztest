@@ -13,6 +13,7 @@
 // limitations under the License.
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -31,8 +32,6 @@
 #include <vector>
 
 #include "absl/base/nullability.h"
-#include "absl/random/bit_gen_ref.h"
-#include "absl/random/random.h"
 #include "./centipede/engine_abi.h"
 #include "./centipede/engine_worker_abi.h"
 #include "./centipede/execution_metadata.h"
@@ -524,12 +523,12 @@ void WorkerDoGetSeeds(const FuzzTestAdapter& adapter) {
   }
 }
 
-absl::BitGenRef GetBitGen() {
-  static thread_local std::unique_ptr<absl::BitGen> bitgen;
-  if (bitgen == nullptr) {
-    bitgen = std::make_unique<absl::BitGen>();
-  }
-  return *bitgen;
+// Returns the current time in microseconds.
+uint64_t TimeInUsec() {
+  struct timeval tv = {};
+  constexpr size_t kUsecInSec = 1000000;
+  gettimeofday(&tv, nullptr);
+  return tv.tv_sec * kUsecInSec + tv.tv_usec;
 }
 
 void WorkerDoMutate(const FuzzTestAdapter& adapter) {
@@ -583,9 +582,10 @@ void WorkerDoMutate(const FuzzTestAdapter& adapter) {
 
   std::vector<uint8_t> mutant_bytes;
   const auto mutant_bytes_sink = GetBytesSinkTo(mutant_bytes);
+  auto seed = static_cast<unsigned int>(TimeInUsec());
   for (size_t i = 0; i < num_mutants; ++i) {
-    const auto origin =
-        absl::Uniform<size_t>(GetBitGen(), 0, origin_inputs.size());
+    // Assume RAND_MAX is large enough and not worry about fairness for now.
+    const auto origin = rand_r(&seed) % origin_inputs.size();
     emitted_inputs.clear();
     adapter.Mutate(adapter.ctx, origin_inputs[origin], /*shrink=*/0,
                    &input_sink);
