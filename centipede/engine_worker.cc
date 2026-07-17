@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -218,6 +219,7 @@ enum class WorkerAction {
   kTestGetSeeds,
   kTestMutate,
   kTestExecute,
+  kNoOp,
 };
 
 constexpr std::string_view kWorkerBinaryIdOutputFlagHeader =
@@ -431,8 +433,11 @@ int GetCrossOverLevel() {
   return result;
 }
 
-WorkerAction GetWorkerAction() {
-  static WorkerAction worker_action = [] {
+std::optional<WorkerAction> GetWorkerAction() {
+  static auto worker_action = []() -> std::optional<WorkerAction> {
+    if (HasWorkerSwitchFlag("dump_configuration")) {
+      return WorkerAction::kNoOp;
+    }
     if (HasWorkerSwitchFlag("dump_binary_id")) {
       return WorkerAction::kGetBinaryId;
     }
@@ -443,7 +448,9 @@ WorkerAction GetWorkerAction() {
       return WorkerAction::kTestGetSeeds;
     }
     auto* inputs_blobseq = GetInputsBlobSequence();
-    WorkerCheck(inputs_blobseq != nullptr, "input blob sequence is not found");
+    if (inputs_blobseq == nullptr) {
+      return std::nullopt;
+    }
     auto request_type_blob = inputs_blobseq->Read();
     if (IsMutationRequest(request_type_blob)) {
       inputs_blobseq->Reset();
@@ -453,9 +460,7 @@ WorkerAction GetWorkerAction() {
       inputs_blobseq->Reset();
       return WorkerAction::kTestExecute;
     }
-    WorkerCheck(false, "unknown worker action from the flags");
-    // should not reach here.
-    std::abort();
+    return std::nullopt;
   }();
   return worker_action;
 }
@@ -908,6 +913,12 @@ FuzzTestWorkerStatus WorkerRun(const FuzzTestAdapterManager& manager) {
   }
 
   const auto action = GetWorkerAction();
+  WorkerCheck(action.has_value(), "No worker action to run");
+
+  if (action == WorkerAction::kNoOp) {
+    return kFuzzTestWorkerSuccess;
+  }
+
   if (action == WorkerAction::kGetBinaryId) {
     WorkerDoGetBinaryId(manager);
     return kFuzzTestWorkerSuccess;
@@ -952,8 +963,8 @@ FuzzTestWorkerStatus WorkerRun(const FuzzTestAdapterManager& manager) {
   WorkerCheck(manager.ConstructAdapter != nullptr,
               "ConstructAdapter is not defined");
   FuzzTestAdapter adapter = {};
-  manager.ConstructAdapter(manager.ctx, /*diagnostic_sink=*/&diagnostic_sink,
-                           &adapter);
+  manager.ConstructAdapter(manager.ctx,
+                           /*diagnostic_sink=*/&diagnostic_sink, &adapter);
   WORKER_CHECK_FOR_ERROR();
   WorkerCheck(adapter.SetUpCoverageDomains != nullptr,
               "SetUpCoverageDomains must be defined");
@@ -1000,7 +1011,11 @@ using ::fuzztest::internal::WorkerRun;
 
 }  // namespace
 
-int FuzzTestWorkerIsRequired() { return GetWorkerFlags().present; }
+int FuzzTestWorkerIsRequired() {
+  static int result = GetWorkerFlags().present &&
+                      fuzztest::internal::GetWorkerAction().has_value();
+  return result;
+}
 
 FuzzTestWorkerStatus FuzzTestWorkerMaybeRun(
     const FuzzTestAdapterManager* manager) {
