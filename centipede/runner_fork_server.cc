@@ -349,6 +349,13 @@ void ForkServerCallMeVeryEarly() {
       if (sigwait(&wait_sigset, &sig) != 0) {
         Exit("###sigwait() failed\n");
       }
+      if (sig == -1) {
+        // TODO(xinhaoyuan): This should never happen, but I've seen it happened
+        // on MacOS. Need further investigation.
+        Log("###sigwait() returns 0 without setting signal number!! Assuming "
+            "SIGCHLD\n");
+        sig = SIGCHLD;
+      }
       if (sig == SIGINT) {
         Log("###Get SIGINT - ignoring\n");
       } else if (sig == SIGTERM) {
