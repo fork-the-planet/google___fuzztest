@@ -205,7 +205,7 @@ std::string Command::ToString() const {
   ss.reserve(/*env*/ 1 + options_.env_diff.size() + /*path*/ 1 +
              /*args*/ options_.args.size() + /*out/err*/ 2);
   // env.
-  ss.push_back("env");
+  ss.push_back("exec env");
   std::vector<std::string> env_to_set;
   env_to_set.reserve(options_.env_diff.size());
   // Arguments that unset environment variables must appear first.
@@ -285,7 +285,7 @@ bool Command::StartForkServer(std::string_view temp_dir_path,
   {
     CENTIPEDE_FORK_SERVER_FIFO0="%s" \
     CENTIPEDE_FORK_SERVER_FIFO1="%s" \
-    exec %s
+    %s
   } &
   printf "%%s" $! > "%s"
 )sh";
