@@ -146,9 +146,7 @@ struct Command::ForkServerProps {
           /*fd=*/pipe_[1],
           /*events=*/POLLIN,
       };
-      const int poll_timeout_ms = static_cast<int>(absl::ToInt64Milliseconds(
-          std::max(deadline - absl::Now(), absl::Milliseconds(1))));
-      poll_ret = poll(&poll_fd, 1, poll_timeout_ms);
+      poll_ret = poll(&poll_fd, 1, PollTimeoutMs(deadline - absl::Now()));
       // The `poll()` syscall can get interrupted: it sets errno==EINTR in that
       // case. We should tolerate that.
     } while (poll_ret < 0 && errno == EINTR);
