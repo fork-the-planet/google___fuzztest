@@ -299,14 +299,28 @@ void WorkerEmitError(std::string_view message) {
   WorkerEmitFailureOutput("SETUP FAILURE: ", message);
 }
 
+// TODO(xinhaoyuan): Some of them are planned to be removed.
+static constexpr std::array<std::string_view, 3> kNonFindingPrefixes = {
+    "SETUP FAILURE:",
+    "IGNORED FAILURE:",
+    "SKIPPED TEST:",
+};
+
 void WorkerEmitFinding(std::string_view description,
                        std::string_view signature) {
   WorkerCheck(
       GetWorkerState().in_adapter_execute.load(std::memory_order_relaxed),
       "Must emit finding in adapter execute");
+  for (auto bad_prefix : kNonFindingPrefixes) {
+    if (description.substr(0, bad_prefix.size()) == bad_prefix) {
+      WorkerLog("Got bad prefix in the finding description: ", description);
+      WorkerEmitError("Bad prefix in the finding description");
+      return;
+    }
+  }
   const bool ignored = GetWorkerState().has_finding.exchange(true);
   if (!ignored) {
-    WorkerCheck(WorkerEmitFailureOutput("INPUT FAILURE: ", description),
+    WorkerCheck(WorkerEmitFailureOutput(/*prefix=*/"", description),
                 "Failed to emit failure output for the finding");
     if (const char* finding_signature_path =
             GetWorkerFlag(kWorkerFailureSignaturePathFlagHeader);

@@ -1406,9 +1406,8 @@ TEST_F(CentipedeWithTemporaryLocalDir, EngineWorksInWorkerMode) {
   fuzztest::internal::DefaultCallbacksFactory<
       fuzztest::internal::CentipedeDefaultCallbacks>
       callbacks;
-  EXPECT_DEATH(
-      [&] { std::exit(CentipedeMain(env, callbacks)); }(),
-      ContainsRegex("Failure *: INPUT FAILURE: some_failure_description"));
+  EXPECT_DEATH([&] { std::exit(CentipedeMain(env, callbacks)); }(),
+               ContainsRegex("Failure *: some_failure_description"));
 }
 
 TEST_F(CentipedeWithTemporaryLocalDir, EngineWorksInStandaloneMode) {
@@ -1428,7 +1427,7 @@ TEST_F(CentipedeWithTemporaryLocalDir, EngineWorksInStandaloneMode) {
         const int status = std::system(test_command.c_str());
         std::exit(WEXITSTATUS(status));
       }(),
-      ContainsRegex("Failure *: INPUT FAILURE: some_failure_description"));
+      ContainsRegex("Failure *: some_failure_description"));
 }
 
 }  // namespace
