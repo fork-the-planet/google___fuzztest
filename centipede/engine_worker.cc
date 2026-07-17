@@ -238,6 +238,7 @@ constexpr std::string_view kWorkerOutputsBlobSequencePathFlagHeader =
 constexpr std::string_view kWorkerPersistentModeSocketPathFlagHeader =
     "persistent_mode_socket=";  // TODO: Use better flag names when
                                 // standardizing the protocol.
+constexpr std::string_view kWorkerCrossOverLevel = "crossover_level=";
 
 struct WorkerState {
   std::atomic<bool> has_failure_output = false;
@@ -416,6 +417,20 @@ BlobSequence* GetOutputsBlobSequence() {
   return result;
 }
 
+int GetCrossOverLevel() {
+  static int result = []() {
+    const char* cross_over_level_str = GetWorkerFlag(kWorkerCrossOverLevel);
+    if (cross_over_level_str != nullptr) {
+      const int parsed =
+          atoi(cross_over_level_str);  // NOLINT: can't use strto64, etc.
+      if (0 <= parsed && parsed <= 100) return parsed;
+    }
+    // Default
+    return 50;
+  }();
+  return result;
+}
+
 WorkerAction GetWorkerAction() {
   static WorkerAction worker_action = [] {
     if (HasWorkerSwitchFlag("dump_binary_id")) {
@@ -588,11 +603,20 @@ void WorkerDoMutate(const FuzzTestAdapter& adapter) {
     // Assume RAND_MAX is large enough and not worry about fairness for now.
     const auto origin = rand_r(&seed) % origin_inputs.size();
     emitted_inputs.clear();
-    adapter.Mutate(adapter.ctx, origin_inputs[origin], /*shrink=*/0,
-                   &input_sink);
+    const bool do_cross_over = adapter.CrossOver != nullptr &&
+                               rand_r(&seed) % 100 < GetCrossOverLevel();
+    if (do_cross_over) {
+      const auto other = rand_r(&seed) % origin_inputs.size();
+      adapter.CrossOver(adapter.ctx, origin_inputs[origin],
+                        origin_inputs[other], &input_sink);
+    } else {
+      adapter.Mutate(adapter.ctx, origin_inputs[origin], /*shrink=*/0,
+                     &input_sink);
+    }
     WORKER_CHECK_FOR_ERROR();
     WorkerCheck(emitted_inputs.size() == 1,
-                "Mutate must emit exactly one input");
+                do_cross_over ? "CrossOver must emit exactly one input"
+                              : "Mutate must emit exactly one input");
     mutant_bytes.clear();
     adapter.SerializeInputContent(adapter.ctx, emitted_inputs[0],
                                   &mutant_bytes_sink);
