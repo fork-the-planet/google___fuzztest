@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <fcntl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/un.h>
@@ -663,6 +664,34 @@ void WorkerDoExecute(const FuzzTestAdapter& adapter) {
     return true;
   }();
 
+  // Utils to get execution stats.
+
+  class Timer {
+   public:
+    uint64_t UsecSinceLast() {
+      const uint64_t t = TimeInUsec();
+      const uint64_t ret = t - last_time_usec_;
+      last_time_usec_ = t;
+      return ret;
+    };
+
+   private:
+    uint64_t last_time_usec_ = TimeInUsec();
+  } timer;
+
+  auto GetPeakRSSMb = []() -> size_t {
+    struct rusage usage = {};
+    if (getrusage(RUSAGE_SELF, &usage) != 0) return 0;
+#ifdef __APPLE__
+    // On MacOS, the unit seems to be byte according to experiment, while some
+    // documents mentioned KiB. This could depend on OS variants.
+    return usage.ru_maxrss >> 20;
+#else   // __APPLE__
+    // On Linux, ru_maxrss is in KiB
+    return usage.ru_maxrss >> 10;
+#endif  // __APPLE__
+  };
+
   // In-loop variables declared outside to save allocations.
   std::vector<uint64_t> features;
   std::vector<uint8_t> serialized_metadata;
@@ -670,6 +699,16 @@ void WorkerDoExecute(const FuzzTestAdapter& adapter) {
   const auto input_sink = GetInputSinkTo(emitted_inputs);
 
   for (size_t i = 0; i < num_inputs; i++) {
+    // The stats gathered here are slightly different than
+    // the original definition: Here the exec_time_usec will cover the time used
+    // to process coverage feedback, which is usually fine for the purpose of
+    // corpus scheduling, but coverage processing can be non-deterministic due
+    // to optimization. E.g. Execute() may perform deep and slow cleanup on
+    // the beginning of consecutive Execute() calls to reduce noise.
+    //
+    // TODO(xinhaoyuan): Consider improving it. E.g. let user override stats.
+    ExecutionResult::Stats stats = {};
+    (void)timer.UsecSinceLast();
     auto blob = inputs_blobseq->Read();
     if (!blob.IsValid()) return;  // no more blobs to read.
     WorkerCheck(IsDataInput(blob), "Must read data input");
@@ -698,7 +737,9 @@ void WorkerDoExecute(const FuzzTestAdapter& adapter) {
         }};
 
     GetWorkerState().in_adapter_execute = true;
+    stats.prep_time_usec = timer.UsecSinceLast();
     adapter.Execute(adapter.ctx, input, &feedback_sink);
+    stats.exec_time_usec = timer.UsecSinceLast();
     GetWorkerState().in_adapter_execute = false;
     WORKER_CHECK_FOR_ERROR();
 
@@ -746,6 +787,12 @@ void WorkerDoExecute(const FuzzTestAdapter& adapter) {
     }
     if (!BatchResult::WriteMetadata(serialized_metadata, *outputs_blobseq)) {
       WorkerLog("failed to write input metadata");
+      break;
+    }
+    stats.post_time_usec = timer.UsecSinceLast();
+    stats.peak_rss_mb = GetPeakRSSMb();
+    if (!BatchResult::WriteStats(stats, *outputs_blobseq)) {
+      WorkerLog("failed to write stats");
       break;
     }
     if (!BatchResult::WriteInputEnd(*outputs_blobseq)) {
